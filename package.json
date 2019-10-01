@@ -1,0 +1,29 @@
+{
+  "name": "cloud-lock",
+  "version": "1.0.0",
+  "description": "JavaScript client for the FORKZERO Cloud Lock service",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha tests/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forkzero/cloud-lock-js.git"
+  },
+  "keywords": [
+    "javascript",
+    "nodejs",
+    "lock",
+    "mutex",
+    "semaphore"
+  ],
+  "author": "George Moon",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/forkzero/cloud-lock-js/issues"
+  },
+  "homepage": "https://github.com/forkzero/cloud-lock-js#readme",
+  "dependencies": {
+    "axios": "^0.19.0"
+  }
+}
