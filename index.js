@@ -7,23 +7,26 @@ module.exports = class CloudLock {
 		this.timeout = 60*1000;
 		this.resource = resource;
 		this.x = this.getRestClient();
+		this.lockData = null;
 	}
 
 	getRestClient() {
 		const axios = require('axios').default;
+		const https = require('https');
+		const httpsAgent = new https.Agent({ keepAlive: true });
 		return axios.create({
 			baseURL: 'https://api.forkzero.com/cloudlock',
 			timeout: 2000,
-			headers: {'X-ForkZero-Client': 'cloud-lock-js'}
+			headers: {'X-ForkZero-Client': 'cloud-lock-js'},
+			httpsAgent: httpsAgent
 		});
 	}
 
 	lock(cb) {
 		this.x.post(`/accounts/foo/resources/${this.resource}/locks`)
 			.then((response) => {
-				console.log(response);
 				if (response.status === 201) {
-					// remove the timeout
+					this.lockData = response.data;
 					cb(null, response.data);
 				}
 				else if (response.status === 423) {
@@ -75,12 +78,12 @@ module.exports = class CloudLock {
 					my.lock((err, result)=> {
 						if (err) { // try again after a delay
 							console.log("no luck, will retry");
-							retryTimer = setTimeout(loop, my.nextDelay(err.response.status));
+							retryTimer = setTimeout(loop, my.nextDelay());
 						} 
 						else {
 							clearTimeout(timerId);
 							my.delay = 0;
-							callback(null, result);
+							callback(result);
 						}
 					});
 				}, my.nextDelay());
