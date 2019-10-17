@@ -1,6 +1,13 @@
 import CloudLock from '../../index';
-import { expect } from 'chai';
+import * as chai from 'chai';
 import 'mocha';
+import * as sinon from 'sinon';
+import sinonChai from 'sinon-chai';
+import moxios from 'moxios';
+
+const expect = chai.expect;
+chai.use(sinonChai);
+
 const aLock = new CloudLock("resourceA");
 const bLock = new CloudLock("resourceB", {ttl: 100});
 
@@ -16,7 +23,19 @@ describe("config", () => {
   })
 });
 describe("lock", () => {
-
+  const resource = new CloudLock("resourceA");
+  beforeEach(function () {
+    moxios.install(resource.restLockClient);
+  })
+  it('should throw error when status=200', (done) => {
+    moxios.stubRequest(/./, { status: 200, statusText: 'OK', responseText: 'hello'} );
+    const lockSpy = sinon.spy();
+    resource.lock().catch(lockSpy);
+    moxios.wait( () => {
+      expect(lockSpy).to.be.calledOnce;
+      done();
+    });
+  });
 });
  aLock.lock()
   .then((data) => {
