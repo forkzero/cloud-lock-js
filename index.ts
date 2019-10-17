@@ -37,8 +37,8 @@ export default class CloudLock extends EventEmitter {
 	maxDelay: number = 5*1000;
 	retryTimer: NodeJS.Timeout | undefined = undefined;
 	timeoutTimer: NodeJS.Timeout | undefined = undefined;
-	restClient: AxiosInstance = this.getRestClient();
-	restLockClient: AxiosInstance = this.getRestLockClient();
+	restClient: AxiosInstance = this.createRestClient();
+	restLockClient: AxiosInstance = this.createRestLockClient();
 	lockData: CloudLockResult | undefined = undefined;
 	httpsKeepAliveAgent = new https.Agent({ keepAlive: true });
 	constructor(resource: string, config: CloudLockConfigOptions = {}) {
@@ -51,7 +51,7 @@ export default class CloudLock extends EventEmitter {
 		return this.config;
 	}
 	
-	getRestClient() {
+	createRestClient() {
 		return axios.create({
 			baseURL: 'https://api.forkzero.com/cloudlock',
 			timeout: 2000,
@@ -60,8 +60,8 @@ export default class CloudLock extends EventEmitter {
 		});
 	}
 
-	getRestLockClient() {
-		const c = this.getRestClient();
+	createRestLockClient() {
+		const c = this.createRestClient();
 		c.defaults.validateStatus = (status) => { 
 			return status === 201 || status === 423; // Reject only if the status code is not 201 or 423
 		}
