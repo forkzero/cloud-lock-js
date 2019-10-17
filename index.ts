@@ -64,7 +64,7 @@ export default class CloudLock extends EventEmitter {
 			console.log(`status=${response.status}`);
 			return response.data;
 		} catch (error) {
-			throw error;
+			throw new Error(error);
 		}
 	}
 
@@ -85,7 +85,7 @@ export default class CloudLock extends EventEmitter {
 					this.lockWithTimeout(resolve, reject);
 				}
 			} catch (error) {
-				this.emit('error', error);
+				this.emit('retryError', error);
 				this.lockWithTimeout(resolve, reject);
 			}
 		}, this.nextDelay());
