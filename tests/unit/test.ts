@@ -29,6 +29,16 @@ aLock.on('retry', (data)=>{
 aLock.on('error', (error)=> {
   console.log("got error");
 });
+const data = "foo";
+bLock.wait()
+.then((lock) => {
+  console.log(`got lock: ${data}`);
+  console.log(lock);
+
+})
+.catch((error) => {
+  console.log("unable to get lock");
+});
 
 // bLock.wait((err, lock) => {
 //   if (err) {

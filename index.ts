@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import * as https from 'https';
 import { EventEmitter } from 'events';
+import { rejects } from 'assert';
 
 interface CloudLockConfig {
 	ttl?: number;
@@ -67,7 +68,7 @@ export default class CloudLock extends EventEmitter {
 		}
 	}
 
-	lockWithTimeout() {
+	lockWithTimeout(resolve: Function, reject: Function) {
 		this.retryTimer = setTimeout(async () => {
 			try {
 				const result = await this.lock();
@@ -77,30 +78,34 @@ export default class CloudLock extends EventEmitter {
 					}
 					this.delay = 0;
 					this.emit('lock', result);
+					resolve(result);
 				}
 				else {
 					this.emit('retry', result);
-					this.lockWithTimeout();
+					this.lockWithTimeout(resolve, reject);
 				}
 			} catch (error) {
 				this.emit('error', error);
-				this.lockWithTimeout();
+				this.lockWithTimeout(resolve, reject);
 			}
 		}, this.nextDelay());
 	}
 
-	wait() {
-		// setup the overall timout
-		this.timeoutTimer = setTimeout(()=>{
-			if (typeof this.retryTimer !== 'undefined') {
-				clearTimeout(this.retryTimer);
-			}
-			this.delay = 0;
-			this.emit('timeout');
-		}, this.timeout);
-		
-		// try to get a lock
-		this.lockWithTimeout();
+	wait(): Promise<CloudLockResult> {
+		return new Promise((resolve, reject) => {
+			// setup the overall timout
+			this.timeoutTimer = setTimeout(()=>{
+				if (typeof this.retryTimer !== 'undefined') {
+					clearTimeout(this.retryTimer);
+				}
+				this.delay = 0;
+				this.emit('timeout');
+				reject(new Error("TimedOut"));
+			}, this.timeout);
+
+			// try to get a lock
+			this.lockWithTimeout(resolve, reject);
+		});
 	}
 
 	nextDelay() {

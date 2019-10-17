@@ -114,7 +114,7 @@ var CloudLock = /** @class */ (function (_super) {
             });
         });
     };
-    CloudLock.prototype.lockWithTimeout = function () {
+    CloudLock.prototype.lockWithTimeout = function (resolve, reject) {
         var _this = this;
         this.retryTimer = setTimeout(function () { return __awaiter(_this, void 0, void 0, function () {
             var result, error_2;
@@ -131,16 +131,17 @@ var CloudLock = /** @class */ (function (_super) {
                             }
                             this.delay = 0;
                             this.emit('lock', result);
+                            resolve(result);
                         }
                         else {
                             this.emit('retry', result);
-                            this.lockWithTimeout();
+                            this.lockWithTimeout(resolve, reject);
                         }
                         return [3 /*break*/, 3];
                     case 2:
                         error_2 = _a.sent();
                         this.emit('error', error_2);
-                        this.lockWithTimeout();
+                        this.lockWithTimeout(resolve, reject);
                         return [3 /*break*/, 3];
                     case 3: return [2 /*return*/];
                 }
@@ -149,16 +150,19 @@ var CloudLock = /** @class */ (function (_super) {
     };
     CloudLock.prototype.wait = function () {
         var _this = this;
-        // setup the overall timout
-        this.timeoutTimer = setTimeout(function () {
-            if (typeof _this.retryTimer !== 'undefined') {
-                clearTimeout(_this.retryTimer);
-            }
-            _this.delay = 0;
-            _this.emit('timeout');
-        }, this.timeout);
-        // try to get a lock
-        this.lockWithTimeout();
+        return new Promise(function (resolve, reject) {
+            // setup the overall timout
+            _this.timeoutTimer = setTimeout(function () {
+                if (typeof _this.retryTimer !== 'undefined') {
+                    clearTimeout(_this.retryTimer);
+                }
+                _this.delay = 0;
+                _this.emit('timeout');
+                reject(new Error("TimedOut"));
+            }, _this.timeout);
+            // try to get a lock
+            _this.lockWithTimeout(resolve, reject);
+        });
     };
     CloudLock.prototype.nextDelay = function () {
         var delay = this.delay;
