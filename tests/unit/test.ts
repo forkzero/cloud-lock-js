@@ -1,9 +1,23 @@
 import CloudLock from '../../index';
+import { expect } from 'chai';
+import 'mocha';
 const aLock = new CloudLock("resourceA");
 const bLock = new CloudLock("resourceB", {ttl: 100});
-const CLock = new CloudLock("resourceC");
 
-/*
+describe("config", () => {
+  it('should allow ttl and timeout', () => {
+    const resource = new CloudLock("foo", {ttl: 200, timeout: 300});
+    expect(resource.getConfig().ttl).to.be.equal(200);
+    expect(resource.getConfig().timeout).to.be.equal(300);
+  });
+  it('should dissalow unsupported config option', ()=>{
+    // @ts-ignore: invalid argument
+    expect( ()=> new CloudLock("foo", {bar: 200}) ).to.throw(/Invalid config/);
+  })
+});
+describe("lock", () => {
+
+});
  aLock.lock()
   .then((data) => {
     console.log(`doing stuff with lockId ${data.lockId}`);
@@ -30,7 +44,6 @@ aLock.on('retry', (data)=>{
 aLock.on('error', (error)=> {
   console.log("got error");
 }); 
-*/
 
 const data = "foo";
 bLock.wait()

@@ -1,11 +1,23 @@
-import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import * as https from 'https';
 import { EventEmitter } from 'events';
-import { rejects } from 'assert';
 
-interface CloudLockConfig {
+interface CloudLockConfigOptions {
 	ttl?: number;
 	timeout?: number;
+}
+
+class CloudLockConfig implements CloudLockConfigOptions {
+	ttl: number = 5;
+	timeout: number = 60*1000;
+	constructor(config: CloudLockConfigOptions) {
+		// assert all config options are supported
+		let invalidProperties = Object.keys(config).filter(key => Object.keys(this).indexOf(key)<0);
+		if (invalidProperties.length>0) {
+			throw new Error(`Invalid config properties: ${invalidProperties}`);
+		} 
+		Object.assign(this, config);
+	}
 }
 
 interface CloudLockResult {
@@ -19,49 +31,69 @@ interface CloudLockResult {
 }
 
 export default class CloudLock extends EventEmitter {
+	config: CloudLockConfig;
+	resource: string;
 	delay: number = 0;
 	maxDelay: number = 5*1000;
-	timeout: number;
 	retryTimer: NodeJS.Timeout | undefined = undefined;
 	timeoutTimer: NodeJS.Timeout | undefined = undefined;
-	ttl: number;
-	resource: string;
-	x: AxiosInstance;
-	lockData: CloudLockResult | undefined;
-	constructor(resource: string, config: CloudLockConfig = {} as CloudLockConfig) {
+	restClient: AxiosInstance = this.getRestClient();
+	restLockClient: AxiosInstance = this.getRestLockClient();
+	lockData: CloudLockResult | undefined = undefined;
+	httpsKeepAliveAgent = new https.Agent({ keepAlive: true });
+	constructor(resource: string, config: CloudLockConfigOptions = {}) {
 		super();
-		let {
-			ttl = 5,
-			timeout = 60*1000
-		} = config;
+		this.config = new CloudLockConfig(config);
 		this.resource = resource;
-		this.ttl = ttl;
-		this.timeout = timeout;
-		this.x = this.getRestClient();
-		this.lockData = undefined;
 	}
 	
 	getConfig() {
-		return { ttl: this.ttl, timeout: this.timeout } as CloudLockConfig;
+		return this.config;
 	}
-
+	
 	getRestClient() {
-		const httpsAgent = new https.Agent({ keepAlive: true });
 		return axios.create({
 			baseURL: 'https://api.forkzero.com/cloudlock',
 			timeout: 2000,
 			headers: {'X-ForkZero-Client': 'cloud-lock-js'},
-			httpsAgent: httpsAgent,
-			validateStatus: function (status) {
-				return status === 201 || status === 423; // Reject only if the status code is not 201 or 423
-			}
+			httpsAgent: this.httpsKeepAliveAgent,
 		});
 	}
 
+	getRestLockClient() {
+		const c = this.getRestClient();
+		c.defaults.validateStatus = (status) => { 
+			return status === 201 || status === 423; // Reject only if the status code is not 201 or 423
+		}
+		return c;
+	}
+
+	granted(): boolean {
+		if (this.lockData) {
+			return this.lockData.status === "granted";
+		}
+		return false;
+	}
+
+	clearRetry() {
+		if (typeof this.timeoutTimer !== 'undefined') {
+			clearTimeout(this.timeoutTimer);
+		}
+		if (typeof this.retryTimer !== 'undefined') {
+			clearTimeout(this.retryTimer);
+		}
+		this.delay = 0;
+	}
+
 	async lock(): Promise<CloudLockResult> {
+		this.lockData = undefined;
 		try {
-			const response = await this.x.post(`/accounts/foo/resources/${this.resource}/locks?ttl=${this.ttl}`);
-			console.log(`status=${response.status}`);
+			const response = await this.restLockClient.post(`/accounts/foo/resources/${this.resource}/locks?ttl=${this.config.ttl}`);
+			console.log(`[${this.resource}] status=${response.status} statusText=${response.statusText}`);
+			this.lockData = response.data;
+			if (this.granted()) {
+				this.emit('lock', response.data);
+			}
 			return response.data;
 		} catch (error) {
 			throw new Error(error);
@@ -71,17 +103,13 @@ export default class CloudLock extends EventEmitter {
 	lockWithTimeout(resolve: Function, reject: Function) {
 		this.retryTimer = setTimeout(async () => {
 			try {
-				const result = await this.lock();
-				if (result.status === 'granted') {
-					if (typeof this.timeoutTimer !== 'undefined') {
-						clearTimeout(this.timeoutTimer);
-					}
-					this.delay = 0;
-					this.emit('lock', result);
-					resolve(result);
+				await this.lock();
+				if (this.granted()) {
+					this.clearRetry();
+					resolve(this.lockData);
 				}
 				else {
-					this.emit('retry', result);
+					this.emit('retry', this.lockData);
 					this.lockWithTimeout(resolve, reject);
 				}
 			} catch (error) {
@@ -92,16 +120,15 @@ export default class CloudLock extends EventEmitter {
 	}
 
 	wait(): Promise<CloudLockResult> {
+		this.lockData = undefined;
 		return new Promise((resolve, reject) => {
+
 			// setup the overall timout
-			this.timeoutTimer = setTimeout(()=>{
-				if (typeof this.retryTimer !== 'undefined') {
-					clearTimeout(this.retryTimer);
-				}
-				this.delay = 0;
+			this.timeoutTimer = setTimeout( () => {
+				this.clearRetry();
 				this.emit('timeout');
 				reject(new Error("TimedOut"));
-			}, this.timeout);
+			}, this.config.timeout);
 
 			// try to get a lock
 			this.lockWithTimeout(resolve, reject);
