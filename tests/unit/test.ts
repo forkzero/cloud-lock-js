@@ -16,16 +16,20 @@ describe("config", () => {
     const resource = new CloudLock("foo", {ttl: 200, timeout: 300});
     expect(resource.getConfig().ttl).to.be.equal(200);
     expect(resource.getConfig().timeout).to.be.equal(300);
-  });
+  })
   it('should dissalow unsupported config option', ()=>{
     // @ts-ignore: invalid argument
     expect( ()=> new CloudLock("foo", {bar: 200}) ).to.throw(/Invalid config/);
   })
-});
+})
 describe("lock", () => {
-  const resource = new CloudLock("resourceA");
+  let resource: CloudLock; 
   beforeEach(function () {
+    resource = new CloudLock("resourceA");
     moxios.install(resource.restLockClient);
+  })
+  afterEach(function () {
+    moxios.uninstall(resource.restLockClient);
   })
   it('should throw error when status=200', (done) => {
     moxios.stubRequest(/./, { status: 200, statusText: 'OK', responseText: 'hello'} );
@@ -33,10 +37,19 @@ describe("lock", () => {
     resource.lock().catch(lockSpy);
     moxios.wait( () => {
       expect(lockSpy).to.be.calledOnce;
-      done();
-    });
-  });
-});
+      done()
+    })
+  })
+  it('should return CloudLockResult when status=201', (done) => {
+    moxios.stubRequest(/./, { status: 201, statusText: 'Created', responseText: 'hello'} );
+    const lockSpy = sinon.spy();
+    resource.lock().then(lockSpy);
+    moxios.wait( () => {
+      expect(lockSpy).to.be.calledOnce;
+      done()
+    })
+  })
+})
  aLock.lock()
   .then((data) => {
     console.log(`doing stuff with lockId ${data.lockId}`);
