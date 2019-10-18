@@ -1,6 +1,8 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import * as https from 'https';
 import { EventEmitter } from 'events';
+// import * as AWSXRay from 'aws-xray-sdk';
+// const httpsXray = AWSXRay.captureHTTPs(https);
 
 interface CloudLockConfigOptions {
 	ttl?: number;
@@ -96,7 +98,7 @@ export default class CloudLock extends EventEmitter {
 			}
 			return response.data;
 		} catch (error) {
-			throw new Error(error);
+			throw error;
 		}
 	}
 
@@ -146,7 +148,7 @@ export default class CloudLock extends EventEmitter {
 				this.delay = this.maxDelay;
 			}
 		}
-		console.log(`retry delay = ${delay}, next = ${this.delay}`);
+		console.log(`[${this.resource}] retry delay = ${delay}, next = ${this.delay}`);
 		return delay;
 	}
 

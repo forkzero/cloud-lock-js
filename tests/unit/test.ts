@@ -3,7 +3,6 @@ import * as chai from 'chai';
 import 'mocha';
 import * as sinon from 'sinon';
 import sinonChai from 'sinon-chai';
-import moxios from 'moxios';
 
 const expect = chai.expect;
 chai.use(sinonChai);
@@ -23,33 +22,50 @@ describe("config", () => {
   })
 })
 describe("lock", () => {
-  let resource: CloudLock; 
+  let resource: CloudLock;
   beforeEach(function () {
     resource = new CloudLock("resourceA");
-    moxios.install(resource.restLockClient);
   })
   afterEach(function () {
-    moxios.uninstall(resource.restLockClient);
+
   })
   it('should throw error when status=200', (done) => {
-    moxios.stubRequest(/./, { status: 200, statusText: 'OK', responseText: 'hello'} );
-    const lockSpy = sinon.spy();
-    resource.lock().catch(lockSpy);
-    moxios.wait( () => {
-      expect(lockSpy).to.be.calledOnce;
-      done()
+    const stub = sinon.stub(resource.restLockClient, "post").rejects({
+      status: 200, 
+      statusText: 'OK'
+    });
+    resource.lock().catch(error => {
+      console.log(error);
+      expect(stub).to.be.calledOnce;
+      done();
+    });
+  })
+  it('should return CloudLockResult with lockId when status=201', (done) => {
+    const stub = sinon.stub(resource.restLockClient, "post").resolves({ 
+      status: 201, 
+      statusText: 'Created', 
+      data: { lockId: "abcd-1234" }
+    });
+    resource.lock().then(result => {
+      expect(stub).to.be.calledOnce;
+      expect(result).to.have.property('lockId');
+      done()  
     })
   })
-  it('should return CloudLockResult when status=201', (done) => {
-    moxios.stubRequest(/./, { status: 201, statusText: 'Created', responseText: 'hello'} );
-    const lockSpy = sinon.spy();
-    resource.lock().then(lockSpy);
-    moxios.wait( () => {
-      expect(lockSpy).to.be.calledOnce;
-      done()
-    })
+  it('should handle ECONNREFUSED or ECONNABORTED', (done) => {
+    const stub = sinon.stub(resource.restLockClient, "post").rejects({
+      isAxiosError: true,
+      code: 'ECONNREFUSED',
+      response: undefined
+    });
+    resource.lock().catch((error) => {
+      expect(stub).to.be.calledOnce;
+      expect(error).to.have.property("code");
+      done();
+    });
   })
 })
+
  aLock.lock()
   .then((data) => {
     console.log(`doing stuff with lockId ${data.lockId}`);
