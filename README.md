@@ -1,4 +1,6 @@
 # cloudlock-js
+*** coming soon, if you need this please email gmoon@forkzero.com ***
+
 JavaScript client for the FORKZERO Cloud Lock service
 
 ### Use Cases
