@@ -54,3 +54,12 @@ resource.on('timeout', () => {
   resource.wait();
 })
 ```
+
+### Check to see if a resource is locked
+```javascript
+const resource = new CloudLock('my-resource');
+
+if (!resource.status().locked) {
+  // resource is not locked; proceed
+}
+```
