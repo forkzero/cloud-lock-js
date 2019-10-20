@@ -1,8 +1,16 @@
 # cloudlock-js
 JavaScript client for the FORKZERO Cloud Lock service
 
-# Lock for Distributed Computing
+### Use Cases
+* Lock/unlock for exclusive access to a resource for distributed, uncoordinated clients
 
+### Install
+`npm install cloudlock --save`
+
+### Use
+`import CloudLock from 'cloudlock'`
+
+### Lock for Distributed Computing
 Obtain a lock
 ```javascript
 const resource = new CloudLock('myresource');
@@ -31,17 +39,18 @@ resource.wait()
 
 Event-based Interface
 ```javascript
-const process = new CloudLock('my-business-process');
-process.wait();
-process.on('lock', lock => {
+const resource = new CloudLock('my-business-process');
+resource.wait();
+
+resource.on('lock', lock => {
   if (lock.locked) {
     // do stuff
   }
-  process.unlock();
+  resource.unlock();
 })
 
-process.on('timeout', () => {
+resource.on('timeout', () => {
   // want to try again?
-  process.wait();
+  resource.wait();
 })
 ```
