@@ -65,8 +65,31 @@ describe("lock", () => {
     });
   })
 })
+describe('wait', () => {
+  let clock: sinon.SinonFakeTimers;
+  before(function () { clock = sinon.useFakeTimers(); });
+  after(function () { clock.restore(); });
+  it('should retry 9 times and throw error upon timeout', (done)=>{
+    const lock = new CloudLock('resourceWait', {timeout: 10*1000} );
+    const next = sinon.stub(lock, 'nextDelay').returns(1000);
+    const stub = sinon.stub(lock.restLockClient, "post").resolves({ 
+      status: 423, 
+      statusText: 'Locked'
+    });
+    lock.wait().catch(error => {
+      expect(error.message).to.be.eq("TimedOut");
+      expect(stub.callCount).to.be.eq(9);
+      done();
+    });
+    lock.on('retry', (lockData) => {
+      clock.tick(1000);
+    })
+    clock.tick(1000);
+  })
+})
 
- aLock.lock()
+/*
+aLock.lock()
   .then((data) => {
     console.log(`doing stuff with lockId ${data.lockId}`);
     console.log(data);
@@ -113,3 +136,4 @@ bLock.wait()
 //     console.log(`doing stuff with lockId ${lock.lockId}`);
 //   }
 // });
+*/

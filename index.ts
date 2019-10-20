@@ -111,8 +111,8 @@ export default class CloudLock extends EventEmitter {
 					resolve(this.lockData);
 				}
 				else {
-					this.emit('retry', this.lockData);
 					this.lockWithTimeout(resolve, reject);
+					this.emit('retry');
 				}
 			} catch (error) {
 				this.emit('retryError', error);
