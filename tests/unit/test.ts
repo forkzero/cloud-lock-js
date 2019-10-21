@@ -87,7 +87,30 @@ describe('wait', () => {
     clock.tick(1000);
   })
 })
-
+describe('unlock', () => {
+  it('will return the lock if locked', (done) => {
+    const res = new CloudLock('resourceUnlock');
+    const postStub = sinon.stub(res.restLockClient, 'post').resolves({
+      status: 201,
+      statusText: "Created",
+      data: { lockId: "abcd-1234", status: "granted" }
+    })
+    const deleteStub = sinon.stub(res.restClient, 'delete').resolves({
+      status: 200,
+      statusText: "OK"
+    })
+    res.lock().then((lock) => {
+      if (res.granted()) {
+        res.unlock().then(result=>{
+          expect(result).to.be.true;
+          expect(postStub).to.be.calledOnce;
+          expect(deleteStub).to.be.calledOnce;
+          done();
+        })
+      }
+    })
+  })
+})
 /*
 aLock.lock()
   .then((data) => {
