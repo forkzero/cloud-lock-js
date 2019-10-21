@@ -87,12 +87,25 @@ export default class CloudLock extends EventEmitter {
 		this.delay = 0;
 	}
 
+	retry(f: Function, retries=3, jitter=true, err: any =null) {
+		if (retries === 0) {
+			return Promise.reject(err);
+		}
+		return f().catch((err: any)=>{
+			return this.retry(f, (retries-1), jitter, err);
+		})
+	}
+
 	async unlock(): Promise<boolean> {
+		let result = false;
 		if (typeof this.lockData === 'undefined' || typeof this.lockData.lockId === 'undefined') {
 			throw new Error("NoActiveLock");
 		}
 		try {
 			const response = await this.restClient.delete(`/accounts/foo/resources/${this.resource}/locks/${this.lockData.lockId}`);
+			if (response.status===200) {
+
+			}
 		} catch (error) {
 			throw error;
 		}
