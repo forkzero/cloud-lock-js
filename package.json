@@ -2,13 +2,15 @@
   "name": "cloudlock",
   "version": "1.0.0",
   "description": "JavaScript client for the FORKZERO Cloud Lock service",
-  "main": "index.js",
+  "main": "dist/src/index.js",
+  "typings": "dist/src/index.d.ts",
   "scripts": {
     "compile": "tsc --declaration",
-    "test": "mocha -r ts-node/register tests/**/*.ts",
-    "build": "node_modules/.bin/webpack --config webpack.config.js",
+    "test": "mocha -r ts-node/register test/**/*.ts",
+    "build": "tsc",
     "watch": "tsc --watch",
-    "test-watch": "mocha -r ts-node/register ./tests/** --growl --watch --watch-extensions ts"
+    "test-watch": "mocha -r ts-node/register ./test/** --growl --watch --watch-extensions ts"
+    "doc": "typedoc --out docs ./src"
   },
   "repository": {
     "type": "git",
@@ -29,7 +31,8 @@
   "homepage": "https://github.com/forkzero/cloud-lock-js#readme",
   "dependencies": {
     "axios": "^0.19.0",
-    "https": "^1.0.0"
+    "https": "^1.0.0",
+    "retry-axios": "^1.0.1"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

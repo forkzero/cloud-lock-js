@@ -1,4 +1,4 @@
-import CloudLock from '../../index';
+import CloudLock from '../src';
 import * as chai from 'chai';
 import 'mocha';
 import * as sinon from 'sinon';

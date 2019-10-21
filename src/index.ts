@@ -1,6 +1,8 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import * as https from 'https';
 import { EventEmitter } from 'events';
+import * as rax from 'retry-axios';
+
 // import * as AWSXRay from 'aws-xray-sdk';
 // const httpsXray = AWSXRay.captureHTTPs(https);
 
@@ -40,6 +42,13 @@ export default class CloudLock extends EventEmitter {
 	retryTimer: NodeJS.Timeout | undefined = undefined;
 	timeoutTimer: NodeJS.Timeout | undefined = undefined;
 	restClient: AxiosInstance = this.createRestClient();
+	restClientRetryConfig: rax.RetryConfig = {
+		retry: 3,
+		noResponseRetries: 3,
+		retryDelay: 100,
+		httpMethodsToRetry: ['GET', 'HEAD', 'OPTIONS', 'DELETE', 'PUT', 'POST'],
+		statusCodesToRetry: [[100, 199], [429, 429], [500, 599]]
+	}
 	restLockClient: AxiosInstance = this.createRestLockClient();
 	lockData: CloudLockResult | undefined = undefined;
 	httpsKeepAliveAgent = new https.Agent({ keepAlive: true });
@@ -47,6 +56,7 @@ export default class CloudLock extends EventEmitter {
 		super();
 		this.config = new CloudLockConfig(config);
 		this.resource = resource;
+		rax.attach(this.restLockClient);
 	}
 	
 	getConfig() {
