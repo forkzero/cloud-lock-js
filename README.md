@@ -10,7 +10,9 @@ JavaScript client for the FORKZERO Cloud Lock service
 `npm install cloudlock --save`
 
 ### Use
-`import CloudLock from 'cloudlock'`
+`// es6
+import CloudLock from 'cloudlock'
+const resource = new CloudLock('my-resource')`
 
 ### Lock for Distributed Computing
 Obtain a lock
@@ -29,9 +31,9 @@ Obtain a lock with progressive retries, up to timeout
 const resource = new CloudLock('s3:my-bucket/my-file');
 resource.wait()
   .then(lock=>{
-    if (lock.locked) {
+    if (resource.locked) {
       // do stuff
-      lock.unlock();
+      resource.unlock();
     }
   })
   .catch(error => {
@@ -45,7 +47,7 @@ const resource = new CloudLock('my-business-process');
 resource.wait();
 
 resource.on('lock', lock => {
-  if (lock.locked) {
+  if (resource.locked) {
     // do stuff
   }
   resource.unlock();
