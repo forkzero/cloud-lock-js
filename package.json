@@ -9,7 +9,7 @@
     "test": "mocha -r ts-node/register test/**/*.ts",
     "build": "tsc",
     "watch": "tsc --watch",
-    "test-watch": "mocha -r ts-node/register ./test/** --growl --watch --watch-extensions ts"
+    "test-watch": "mocha -r ts-node/register ./test/** --growl --watch --watch-extensions ts",
     "doc": "typedoc --out docs ./src"
   },
   "repository": {
