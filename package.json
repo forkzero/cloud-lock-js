@@ -15,7 +15,9 @@
   },
   "mocha": {
     "diff": true,
-    "extension": ["ts"],
+    "extension": [
+      "ts"
+    ],
     "opts": "./test/mocha.opts",
     "package": "./package.json",
     "reporter": "spec",
@@ -69,6 +71,7 @@
     "@types/sinon": "^7.5.0",
     "@types/sinon-chai": "^3.2.3",
     "chai": "^4.2.0",
+    "codecov": "^3.6.1",
     "growl": "^1.10.5",
     "json-loader": "^0.5.7",
     "mocha": "^6.2.2",
