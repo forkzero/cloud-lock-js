@@ -16,9 +16,15 @@ JavaScript client for the FORKZERO Cloud Lock service
 `npm install cloudlock --save`
 
 ### Use
-`// es6
+```javascript
+// CommonJS
+const CloudLock = require('cloudlock')
+
+// es6
 import CloudLock from 'cloudlock'
+
 const resource = new CloudLock('my-resource')`
+```
 
 ### Lock for Distributed Computing
 Obtain a lock
