@@ -6,11 +6,38 @@
   "typings": "dist/src/index.d.ts",
   "scripts": {
     "compile": "tsc --declaration",
-    "test": "mocha -r ts-node/register test/**/*.ts",
+    "test": "nyc mocha",
     "build": "tsc",
     "watch": "tsc --watch",
-    "test-watch": "mocha -r ts-node/register ./test/** --growl --watch --watch-extensions ts",
-    "doc": "typedoc --out docs ./src"
+    "test-watch": "mocha --growl --watch --watch-extensions ts",
+    "doc": "typedoc --out docs ./src",
+    "coverage": "nyc report --reporter=json; codecov -f coverage/*.json"
+  },
+  "mocha": {
+    "diff": true,
+    "extension": ["ts"],
+    "opts": "./test/mocha.opts",
+    "package": "./package.json",
+    "reporter": "spec",
+    "slow": 75,
+    "timeout": 2000,
+    "ui": "bdd"
+  },
+  "nyc": {
+    "extension": [
+      ".ts",
+      ".tsx"
+    ],
+    "include": [
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "**/*.d.ts"
+    ],
+    "reporter": [
+      "html"
+    ],
+    "all": true
   },
   "repository": {
     "type": "git",
@@ -45,8 +72,10 @@
     "growl": "^1.10.5",
     "json-loader": "^0.5.7",
     "mocha": "^6.2.2",
+    "nyc": "^14.1.1",
     "sinon": "^7.5.0",
     "sinon-chai": "^3.3.0",
+    "source-map-support": "^0.5.13",
     "ts-loader": "^6.2.0",
     "ts-node": "^8.4.1",
     "typescript": "^3.6.4"
