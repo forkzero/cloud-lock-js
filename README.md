@@ -1,6 +1,8 @@
-[![Actions Status](https://github.com/forkzero/cloudlock-js/workflows/Node%20CI/badge.svg)](https://github.com/forkzero/cloudlock-js/actions)
-[![codecov](https://codecov.io/gh/forkzero/cloudlock-js/branch/master/graph/badge.svg)](https://codecov.io/gh/forkzero/cloudlock-js)
+[![NPM Version][npm-image]][npm-url]
+[![Actions Status][action-image]][action-url]
+[![codecov][codecov-image]][codecov-url]
 [![Dependency Status][david-image]][david-url]
+[![Known Vulnerabilities][synk-image]][synk-url]
 
 # cloudlock-js
 *** coming soon, if you need this please email gmoon@forkzero.com ***
@@ -71,5 +73,11 @@ if (!resource.status().locked) {
   // resource is not locked; proceed
 }
 ```
+[action-image]: https://github.com/forkzero/cloudlock-js/workflows/Node%20CI/badge.svg
+[action-url]: https://github.com/forkzero/cloudlock-js/actions
+[codecov-image]: https://codecov.io/gh/forkzero/cloudlock-js/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/forkzero/cloudlock-js
 [david-image]: https://david-dm.org/forkzero/cloudlock-js.svg
 [david-url]: https://david-dm.org/forkzero/cloudlock-js/
+[synk-image]: https://snyk.io//test/github/forkzero/cloudlock-js/badge.svg?targetFile=package.json
+[synk-url]: https://snyk.io//test/github/forkzero/cloudlock-js?targetFile=package.json
