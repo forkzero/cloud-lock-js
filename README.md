@@ -1,4 +1,5 @@
 [![Actions Status](https://github.com/forkzero/cloudlock-js/workflows/Node%20CI/badge.svg)](https://github.com/forkzero/cloudlock-js/actions)
+[![codecov](https://codecov.io/gh/forkzero/cloudlock-js/branch/master/graph/badge.svg)](https://codecov.io/gh/forkzero/cloudlock-js)
 
 # cloudlock-js
 *** coming soon, if you need this please email gmoon@forkzero.com ***
