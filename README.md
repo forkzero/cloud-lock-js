@@ -1,4 +1,4 @@
-[![NPM Version][npm-image]][npm-url]
+
 [![Actions Status][action-image]][action-url]
 [![codecov][codecov-image]][codecov-url]
 [![Dependency Status][david-image]][david-url]
