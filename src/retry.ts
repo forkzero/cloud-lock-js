@@ -19,9 +19,8 @@ export class RetryAxios extends EventEmitter {
   attemptLog: Array<Attempt> = [];
   maxRetries: number = 100;
   delay: number = 200; // starting delay, in ms
-  jitter: number = 0; // jitter, in ms
-  maxDelay: number = 60*1000;
-  attempt: number = 0;
+  jitter: number = 0;  // jitter, in ms
+  attempt: number = 0; // counter for number of attemps made
   retryTimer: NodeJS.Timeout | undefined;
   constructor(max: number, delay: number) {
     super();
@@ -32,7 +31,7 @@ export class RetryAxios extends EventEmitter {
     }
   }
 
-  retry = (fn: Function) => new Promise((resolve, reject) => {
+  retry = (fn: Function): Promise<AxiosResponse> => new Promise((resolve, reject) => {
       this.runFunction(fn, resolve, reject);
   });
 
@@ -46,54 +45,54 @@ export class RetryAxios extends EventEmitter {
       .then((axResponse: AxiosResponse) => {
 
         // log the attempt and the result
-        this.logAttempt(axResponse);
+        this.logAttempt(axResponse)
 
         // determine if a retry is necessary
         if (this.shouldRetry(axResponse)) {
 
           // perform the retry
-          this.incrementDelay(isException);
+          this.incrementDelay(isException)
           this.retryTimer = setTimeout(() => this.runFunction(fn, resolve, reject), this.delay+this.jitter)
-          this.emit('retry');
+          this.emit('retry')
         }
         else {
 
           // no more retries, return the response
-          resolve(axResponse);
-          this.emit('success');
+          resolve(axResponse)
+          this.emit('success')
         }  
       })
 
       .catch((err: AxiosError) => {
 
         // log the attempt and the error
-        this.logAttemptError(err);
+        this.logAttemptError(err)
 
         // determine if a retry is necessary
         if (this.shouldRetryError(err)) {
 
           // perform the retry
-          const isException = true;
-          this.incrementDelay(isException);
-          this.retryTimer = setTimeout(() => this.runFunction(fn, resolve, reject), this.delay)
-          this.emit('retry');
+          const isException = true
+          this.incrementDelay(isException)
+          this.retryTimer = setTimeout(() => this.runFunction(fn, resolve, reject), this.delay+this.jitter)
+          this.emit('retry')
         }
         else {
 
           // no more retries, return the error
-          reject(err);
-          this.emit('unsuccessful');
+          reject(err)
+          this.emit('unsuccessful')
         }
       })
   }
 
   incrementDelay(isAxiosError: boolean) {
-    this.jitter = Math.floor(Math.random() * 100);
+    this.jitter = Math.floor(Math.random() * 100)
     if (isAxiosError) {
-      this.delay = this.delay * 2;
+      this.delay = this.delay * 2
     }
     else {
-      this.delay = this.delay * 2;
+      this.delay = this.delay * 2
     }
   }
 
@@ -117,8 +116,8 @@ export class RetryAxios extends EventEmitter {
       status: ax.status,
       statusText: ax.statusText
     }
-    this.attemptLog.push(attempt);
-    console.log(attempt);
+    this.attemptLog.push(attempt)
+    console.log(attempt)
   }
 
   logAttemptError(err: AxiosError) {
