@@ -14,20 +14,22 @@ interface Attempt {
 
 export class RetryAxios extends EventEmitter {
   defaults = {
-    delay: 500 // delay 500ms
+    initialDelay: 500, // milliseconds
+    maxRetries: 100,
+    maxDelay: 3*60*1000 // 3 minutes in milliseconds
   }
   attemptLog: Array<Attempt> = [];
   maxRetries: number = 100;
-  delay: number = 200; // starting delay, in ms
+  delay: number = 0; // starting delay, in ms
   jitter: number = 0;  // jitter, in ms
   attempt: number = 0; // counter for number of attemps made
   retryTimer: NodeJS.Timeout | undefined;
-  constructor(max: number, delay: number) {
+  constructor(maxRetries?: number, initialDelay?: number) {
     super();
-    this.maxRetries = max;
-    this.delay = delay;
-    if (delay <= 0) {
-      throw new Error("delay must be a positive number");
+    this.maxRetries = (typeof maxRetries === 'undefined') ? this.defaults.maxRetries : maxRetries;
+    this.defaults.initialDelay = (typeof initialDelay === 'undefined') ? this.defaults.initialDelay : initialDelay;
+    if (this.defaults.initialDelay <= 0) {
+      throw new Error("initialDelay must be a positive number");
     }
   }
 
@@ -88,11 +90,17 @@ export class RetryAxios extends EventEmitter {
 
   incrementDelay(isAxiosError: boolean) {
     this.jitter = Math.floor(Math.random() * 100)
-    if (isAxiosError) {
+    if (this.delay === 0) {
+      this.delay = this.defaults.initialDelay;
+    }
+    else if (isAxiosError) {
       this.delay = this.delay * 2
     }
     else {
       this.delay = this.delay * 2
+    }
+    if (this.delay > this.defaults.maxDelay) {
+      this.delay = this.defaults.maxDelay
     }
   }
 

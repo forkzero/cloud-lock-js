@@ -1,8 +1,11 @@
-import CloudLock from '../src/index';
-import * as chai from 'chai';
-import 'mocha';
-import * as sinon from 'sinon';
-import sinonChai from 'sinon-chai';
+import CloudLock from '../src/index'
+import {RetryAxios} from '../src/retry'
+import * as chai from 'chai'
+import 'mocha'
+import * as sinon from 'sinon'
+import sinonChai from 'sinon-chai'
+import nock from 'nock'
+import {AxiosError} from 'axios'
 
 const expect = chai.expect;
 chai.use(sinonChai);
@@ -30,13 +33,14 @@ describe("lock", () => {
 
   })
   it('should throw error when status=200', (done) => {
-    const stub = sinon.stub(resource.restLockClient, "post").rejects({
-      status: 200, 
-      statusText: 'OK'
-    });
+    const scope = nock('https://api.forkzero.com')
+      .post(/locks/)
+      .times(3)
+      .reply(200, "OK")
     resource.lock().catch(error => {
-      console.log(error);
-      expect(stub).to.be.calledOnce;
+      scope.done();
+      // expect(stub).to.be.calledThrice;
+      expect(error).to.be.instanceOf(Error)
       done();
     });
   })
@@ -59,7 +63,7 @@ describe("lock", () => {
       response: undefined
     });
     resource.lock().catch((error) => {
-      expect(stub).to.be.calledOnce;
+      expect(stub).to.be.calledThrice;
       expect(error).to.have.property("code");
       done();
     });
@@ -70,21 +74,24 @@ describe('wait', () => {
   before(function () { clock = sinon.useFakeTimers(); });
   after(function () { clock.restore(); });
   it('should retry 9 times and throw error upon timeout', (done)=>{
-    const lock = new CloudLock('resourceWait', {timeout: 10*1000} );
-    const next = sinon.stub(lock, 'nextDelay').returns(1000);
-    const stub = sinon.stub(lock.restLockClient, "post").resolves({ 
-      status: 423, 
-      statusText: 'Locked'
-    });
-    lock.wait().catch(error => {
-      expect(error.message).to.be.eq("TimedOut");
-      expect(stub.callCount).to.be.eq(9);
-      done();
-    });
-    lock.on('retry', (lockData) => {
-      clock.tick(1000);
+    const scope = nock('https://api.forkzero.com')
+    .post(/locks/)
+    .times(10)
+    .reply(423, { status: "denied" })
+    const resource = new CloudLock('resourceWait');
+    resource.restLockClientRetryStrategy = new RetryAxios(10, 100);
+
+    resource.wait()
+    .then(response => {
+      scope.done()
+      expect(resource.granted()).to.be.false
+      console.log("got a response")
+      console.log(response)
+      done()
     })
-    clock.tick(1000);
+    resource.restLockClientRetryStrategy.on('retry', () => {
+      clock.tick(resource.restLockClientRetryStrategy.delay + resource.restLockClientRetryStrategy.jitter);
+    })
   })
 })
 describe('unlock', () => {

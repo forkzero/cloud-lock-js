@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import * as https from 'https';
 import { EventEmitter } from 'events';
 import * as rax from 'retry-axios';
+import { RetryAxios } from './retry';
 
 // import * as AWSXRay from 'aws-xray-sdk';
 // const httpsXray = AWSXRay.captureHTTPs(https);
@@ -37,21 +38,19 @@ interface CloudLockResult {
 export default class CloudLock extends EventEmitter {
 	config: CloudLockConfig;
 	resource: string;
-	delay: number = 0;
-	maxDelay: number = 5*1000;
-	retryTimer: NodeJS.Timeout | undefined = undefined;
-	timeoutTimer: NodeJS.Timeout | undefined = undefined;
 	restClient: AxiosInstance = this.createRestClient();
+	restClientRetryStrategy: RetryAxios = new RetryAxios(3, 100);
 	restClientRetryConfig: rax.RetryConfig = {
 		retry: 3,
 		noResponseRetries: 3,
 		retryDelay: 100,
 		httpMethodsToRetry: ['GET', 'HEAD', 'OPTIONS', 'DELETE', 'PUT', 'POST'],
-		statusCodesToRetry: [[100, 199], [429, 429], [500, 599]]
+		statusCodesToRetry: [[100,199], [423,423], [429,429], [500,599]]
 	}
 	restLockClient: AxiosInstance = this.createRestLockClient();
+	restLockClientRetryStrategy = new RetryAxios(100, 500);
 	lockData: CloudLockResult | undefined = undefined;
-	httpsKeepAliveAgent = new https.Agent({ keepAlive: true });
+	httpsKeepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: 5*1000 });
 	constructor(resource: string, config: CloudLockConfigOptions = {}) {
 		super();
 		this.config = new CloudLockConfig(config);
@@ -67,7 +66,7 @@ export default class CloudLock extends EventEmitter {
 		return axios.create({
 			baseURL: 'https://api.forkzero.com/cloudlock',
 			timeout: 2000,
-			headers: {'X-ForkZero-Client': 'cloud-lock-js'},
+			headers: {'X-ForkZero-Client': 'cloudlock-js'},
 			httpsAgent: this.httpsKeepAliveAgent,
 		});
 	}
@@ -75,7 +74,7 @@ export default class CloudLock extends EventEmitter {
 	createRestLockClient() {
 		const c = this.createRestClient();
 		c.defaults.validateStatus = (status) => { 
-			return status === 201 || status === 423; // Reject only if the status code is not 201 or 423
+			return status === 201 || status === 423; // Reject if the status code is not 201 or 423
 		}
 		return c;
 	}
@@ -87,45 +86,28 @@ export default class CloudLock extends EventEmitter {
 		return false;
 	}
 
-	clearRetry() {
-		if (typeof this.timeoutTimer !== 'undefined') {
-			clearTimeout(this.timeoutTimer);
-		}
-		if (typeof this.retryTimer !== 'undefined') {
-			clearTimeout(this.retryTimer);
-		}
-		this.delay = 0;
-	}
-
-	retry(f: Function, retries=3, jitter=true, err: any =null) {
-		if (retries === 0) {
-			return Promise.reject(err);
-		}
-		return f().catch((err: any)=>{
-			return this.retry(f, (retries-1), jitter, err);
-		})
-	}
+	_unlock = () => this.restClient.delete(`/accounts/foo/resources/${this.resource}/locks/${this.lockData!.lockId}`)
+	_unlockRetry = () => this.restClientRetryStrategy.retry(this._unlock)
 
 	async unlock(): Promise<boolean> {
-		let result = false;
 		if (typeof this.lockData === 'undefined' || typeof this.lockData.lockId === 'undefined') {
 			throw new Error("NoActiveLock");
 		}
 		try {
-			const response = await this.restClient.delete(`/accounts/foo/resources/${this.resource}/locks/${this.lockData.lockId}`);
-			if (response.status===200) {
-
-			}
+			const result = await this._unlockRetry()
 		} catch (error) {
 			throw error;
 		}
 		return true;
 	}
 
+	_lock = () => this.restLockClient.post(`/accounts/foo/resources/${this.resource}/locks?ttl=${this.config.ttl}`)
+	_lockRetry = () => this.restClientRetryStrategy.retry(this._lock)
+
 	async lock(): Promise<CloudLockResult> {
 		this.lockData = undefined;
 		try {
-			const response = await this.restLockClient.post(`/accounts/foo/resources/${this.resource}/locks?ttl=${this.config.ttl}`);
+			const response = await this._lockRetry()
 			console.log(`[${this.resource}] status=${response.status} statusText=${response.statusText}`);
 			this.lockData = response.data;
 			if (this.granted()) {
@@ -137,54 +119,15 @@ export default class CloudLock extends EventEmitter {
 		}
 	}
 
-	lockWithTimeout(resolve: Function, reject: Function) {
-		this.retryTimer = setTimeout(async () => {
-			try {
-				await this.lock();
-				if (this.granted()) {
-					this.clearRetry();
-					resolve(this.lockData);
-				}
-				else {
-					this.lockWithTimeout(resolve, reject);
-					this.emit('retry');
-				}
-			} catch (error) {
-				this.lockWithTimeout(resolve, reject);
-				this.emit('retryError', error);
-			}
-		}, this.nextDelay());
-	}
+	_wait = () => this.restLockClientRetryStrategy.retry(this._lock)
 
-	wait(): Promise<CloudLockResult> {
-		this.lockData = undefined;
-		return new Promise((resolve, reject) => {
-
-			// setup the overall timout
-			this.timeoutTimer = setTimeout( () => {
-				this.clearRetry();
-				this.emit('timeout');
-				reject(new Error("TimedOut"));
-			}, this.config.timeout);
-
-			// try to get a lock
-			this.lockWithTimeout(resolve, reject);
-		});
-	}
-
-	nextDelay() {
-		const delay = this.delay;
-		if (delay === 0) {
-			this.delay = 100;
+	async wait(): Promise<CloudLockResult> {
+		try {
+			const response = await this._wait()
+			return response.data
+		} catch (error) {
+			throw error
 		}
-		else {
-			this.delay = delay * 2;
-			if (this.delay > this.maxDelay) {
-				this.delay = this.maxDelay;
-			}
-		}
-		console.log(`[${this.resource}] retry delay = ${delay}, next = ${this.delay}`);
-		return delay;
 	}
 
 };
