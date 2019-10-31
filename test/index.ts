@@ -1,17 +1,15 @@
-import CloudLock from '../src/index'
+import {CloudLock} from '../src/index'
 import {RetryAxios} from '../src/retry'
 import * as chai from 'chai'
 import 'mocha'
 import * as sinon from 'sinon'
-import sinonChai from 'sinon-chai'
-import nock from 'nock'
+import * as sinonChai from 'sinon-chai'
+import * as nock from 'nock'
 import {AxiosError} from 'axios'
 
 const expect = chai.expect;
 chai.use(sinonChai);
-
-const aLock = new CloudLock("resourceA");
-const bLock = new CloudLock("resourceB", {ttl: 100});
+nock.disableNetConnect();
 
 describe("config", () => {
   it('should allow ttl and timeout', () => {
@@ -20,17 +18,15 @@ describe("config", () => {
     expect(resource.getConfig().timeout).to.be.equal(300);
   })
   it('should dissalow unsupported config option', ()=>{
+    // tslint:disable-next-line:ban-ts-ignore
     // @ts-ignore: invalid argument
     expect( ()=> new CloudLock("foo", {bar: 200}) ).to.throw(/Invalid config/);
   })
 })
 describe("lock", () => {
   let resource: CloudLock;
-  beforeEach(function () {
+  beforeEach( () => {
     resource = new CloudLock("resourceA");
-  })
-  afterEach(function () {
-
   })
   it('should throw error when status=200', (done) => {
     const scope = nock('https://api.forkzero.com')
@@ -63,16 +59,17 @@ describe("lock", () => {
       response: undefined
     });
     resource.lock().catch((error) => {
-      expect(stub).to.be.calledThrice;
-      expect(error).to.have.property("code");
-      done();
+      expect(stub).to.be.calledThrice
+      expect(error).to.have.property("code")
+      expect(error.code).to.be.eq('ECONNREFUSED')
+      done()
     });
   })
 })
 describe('wait', () => {
   let clock: sinon.SinonFakeTimers;
-  before(function () { clock = sinon.useFakeTimers(); });
-  after(function () { clock.restore(); });
+  before( () => { clock = sinon.useFakeTimers(); });
+  after( () => { clock.restore(); });
   it('should retry 9 times and throw error upon timeout', (done)=>{
     const scope = nock('https://api.forkzero.com')
     .post(/locks/)
@@ -85,7 +82,6 @@ describe('wait', () => {
     .then(response => {
       scope.done()
       expect(resource.granted()).to.be.false
-      console.log("got a response")
       console.log(response)
       done()
     })
@@ -109,10 +105,10 @@ describe('unlock', () => {
     res.lock().then((lock) => {
       if (res.granted()) {
         res.unlock().then(result=>{
-          expect(result).to.be.true;
-          expect(postStub).to.be.calledOnce;
-          expect(deleteStub).to.be.calledOnce;
-          done();
+          expect(result).to.be.true
+          expect(postStub).to.be.calledOnce
+          expect(deleteStub).to.be.calledOnce
+          done()
         })
       }
     })

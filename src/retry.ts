@@ -14,15 +14,15 @@ interface Attempt {
 
 export class RetryAxios extends EventEmitter {
   defaults = {
-    initialDelay: 500, // milliseconds
+    initialDelay: 500,  // milliseconds
     maxRetries: 100,
     maxDelay: 3*60*1000 // 3 minutes in milliseconds
   }
-  attemptLog: Array<Attempt> = [];
-  maxRetries: number = 100;
-  delay: number = 0; // starting delay, in ms
-  jitter: number = 0;  // jitter, in ms
-  attempt: number = 0; // counter for number of attemps made
+  attemptLog: Attempt[] = [];
+  maxRetries = 100;
+  delay = 0;    // starting delay, in ms
+  jitter = 0;   // jitter, in ms
+  attempt = 0;  // counter for number of attemps made
   retryTimer: NodeJS.Timeout | undefined;
   constructor(maxRetries?: number, initialDelay?: number) {
     super();
@@ -39,7 +39,7 @@ export class RetryAxios extends EventEmitter {
 
   runFunction(fn:Function, resolve: Function, reject: Function) {
       this.attempt++;
-      let isException = false
+      const isException = false
     
       // call the provided function
       fn()
@@ -125,7 +125,7 @@ export class RetryAxios extends EventEmitter {
       statusText: ax.statusText
     }
     this.attemptLog.push(attempt)
-    console.log(attempt)
+    console.log(JSON.stringify(attempt))
   }
 
   logAttemptError(err: AxiosError) {
@@ -139,7 +139,7 @@ export class RetryAxios extends EventEmitter {
       status: err.isAxiosError ? null : err.response!.status,
       statusText: err.isAxiosError ? null : err.response!.statusText
     }
-    this.attemptLog.push(attempt);
-    console.log(attempt);
+    this.attemptLog.push(attempt)
+    console.log(JSON.stringify(attempt))
   }
 }

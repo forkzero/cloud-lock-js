@@ -3,7 +3,7 @@ import {AxiosError, AxiosResponse} from 'axios';
 import * as chai from 'chai';
 import 'mocha';
 import * as sinon from 'sinon';
-import sinonChai from 'sinon-chai';
+import * as sinonChai from 'sinon-chai';
 
 const expect = chai.expect;
 chai.use(sinonChai);
@@ -28,13 +28,13 @@ class AxResponse implements AxiosResponse {
   }
 }
 
-async function okAsync(): Promise<any> {
+async function okAsync(): Promise<AxiosResponse> {
   return new AxResponse(200, "OK")
 }
-async function lockedAsync(): Promise<any> {
+async function lockedAsync(): Promise<AxiosResponse> {
   return new AxResponse(423, "Locked")
 }
-async function failsAsync(): Promise<any> {
+async function failsAsync(): Promise<AxiosError> {
   throw new AxError();
 }
 

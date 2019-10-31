@@ -13,11 +13,11 @@ interface CloudLockConfigOptions {
 }
 
 class CloudLockConfig implements CloudLockConfigOptions {
-	ttl: number = 5;
+	ttl = 5;
 	timeout: number = 60*1000;
 	constructor(config: CloudLockConfigOptions) {
 		// assert all config options are supported
-		let invalidProperties = Object.keys(config).filter(key => Object.keys(this).indexOf(key)<0);
+		const invalidProperties = Object.keys(config).filter(key => Object.keys(this).indexOf(key)<0);
 		if (invalidProperties.length>0) {
 			throw new Error(`Invalid config properties: ${invalidProperties}`);
 		} 
@@ -35,7 +35,7 @@ interface CloudLockResult {
 	ttl: number
 }
 
-export default class CloudLock extends EventEmitter {
+export class CloudLock extends EventEmitter {
 	config: CloudLockConfig;
 	resource: string;
 	restClient: AxiosInstance = this.createRestClient();
