@@ -1,8 +1,8 @@
-import {AxiosResponse, AxiosError} from 'axios';
-import {EventEmitter} from 'events';
+import { AxiosResponse, AxiosError } from 'axios';
+import { EventEmitter } from 'events';
 
 interface Attempt {
-  clientTimeEpoch: number,
+  clientTimeEpoch: number;
   attempt: number;
   delay: number;
   jitter: number;
@@ -14,104 +14,103 @@ interface Attempt {
 
 export class RetryAxios extends EventEmitter {
   defaults = {
-    initialDelay: 500,  // milliseconds
+    initialDelay: 500, // milliseconds
     maxRetries: 100,
-    maxDelay: 3*60*1000 // 3 minutes in milliseconds
-  }
+    maxDelay: 3 * 60 * 1000, // 3 minutes in milliseconds
+  };
   attemptLog: Attempt[] = [];
   maxRetries = 100;
-  delay = 0;    // starting delay, in ms
-  jitter = 0;   // jitter, in ms
-  attempt = 0;  // counter for number of attemps made
+  delay = 0; // starting delay, in ms
+  jitter = 0; // jitter, in ms
+  attempt = 0; // counter for number of attemps made
   retryTimer: NodeJS.Timeout | undefined;
   constructor(maxRetries?: number, initialDelay?: number) {
     super();
-    this.maxRetries = (typeof maxRetries === 'undefined') ? this.defaults.maxRetries : maxRetries;
-    this.defaults.initialDelay = (typeof initialDelay === 'undefined') ? this.defaults.initialDelay : initialDelay;
+    this.maxRetries =
+      typeof maxRetries === 'undefined' ? this.defaults.maxRetries : maxRetries;
+    this.defaults.initialDelay =
+      typeof initialDelay === 'undefined'
+        ? this.defaults.initialDelay
+        : initialDelay;
     if (this.defaults.initialDelay <= 0) {
-      throw new Error("initialDelay must be a positive number");
+      throw new Error('initialDelay must be a positive number');
     }
   }
 
-  retry = (fn: Function): Promise<AxiosResponse> => new Promise((resolve, reject) => {
+  retry = (fn: Function): Promise<AxiosResponse> =>
+    new Promise((resolve, reject) => {
       this.runFunction(fn, resolve, reject);
-  });
+    });
 
-  runFunction(fn:Function, resolve: Function, reject: Function) {
-      this.attempt++;
-      const isException = false
-    
-      // call the provided function
-      fn()
+  runFunction(fn: Function, resolve: Function, reject: Function) {
+    this.attempt++;
+    const isException = false;
 
+    // call the provided function
+    fn()
       .then((axResponse: AxiosResponse) => {
-
         // log the attempt and the result
-        this.logAttempt(axResponse)
+        this.logAttempt(axResponse);
 
         // determine if a retry is necessary
         if (this.shouldRetry(axResponse)) {
-
           // perform the retry
-          this.incrementDelay(isException)
-          this.retryTimer = setTimeout(() => this.runFunction(fn, resolve, reject), this.delay+this.jitter)
-          this.emit('retry')
-        }
-        else {
-
+          this.incrementDelay(isException);
+          this.retryTimer = setTimeout(
+            () => this.runFunction(fn, resolve, reject),
+            this.delay + this.jitter
+          );
+          this.emit('retry');
+        } else {
           // no more retries, return the response
-          resolve(axResponse)
-          this.emit('success')
-        }  
+          resolve(axResponse);
+          this.emit('success');
+        }
       })
 
       .catch((err: AxiosError) => {
-
         // log the attempt and the error
-        this.logAttemptError(err)
+        this.logAttemptError(err);
 
         // determine if a retry is necessary
         if (this.shouldRetryError(err)) {
-
           // perform the retry
-          const isException = true
-          this.incrementDelay(isException)
-          this.retryTimer = setTimeout(() => this.runFunction(fn, resolve, reject), this.delay+this.jitter)
-          this.emit('retry')
-        }
-        else {
-
+          const isException = true;
+          this.incrementDelay(isException);
+          this.retryTimer = setTimeout(
+            () => this.runFunction(fn, resolve, reject),
+            this.delay + this.jitter
+          );
+          this.emit('retry');
+        } else {
           // no more retries, return the error
-          reject(err)
-          this.emit('unsuccessful')
+          reject(err);
+          this.emit('unsuccessful');
         }
-      })
+      });
   }
 
   incrementDelay(isAxiosError: boolean) {
-    this.jitter = Math.floor(Math.random() * 100)
+    this.jitter = Math.floor(Math.random() * 100);
     if (this.delay === 0) {
       this.delay = this.defaults.initialDelay;
-    }
-    else if (isAxiosError) {
-      this.delay = this.delay * 2
-    }
-    else {
-      this.delay = this.delay * 2
+    } else if (isAxiosError) {
+      this.delay = this.delay * 2;
+    } else {
+      this.delay = this.delay * 2;
     }
     if (this.delay > this.defaults.maxDelay) {
-      this.delay = this.defaults.maxDelay
+      this.delay = this.defaults.maxDelay;
     }
   }
 
   shouldRetry(result: AxiosResponse): boolean {
-    return (this.attempt >= this.maxRetries) ? false :
-      (result.status === 423)
+    return this.attempt >= this.maxRetries ? false : result.status === 423;
   }
   shouldRetryError(error: AxiosError): boolean {
-    return (this.attempt >= this.maxRetries) ? false :
-      (error.isAxiosError) 
-      || (error.response!.status === 500)
+    return this.attempt >= this.maxRetries
+      ? false
+      : error.isAxiosError || error.response!.status === 500;
   }
   logAttempt(ax: AxiosResponse) {
     const attempt: Attempt = {
@@ -122,10 +121,10 @@ export class RetryAxios extends EventEmitter {
       isAxiosError: false,
       code: null,
       status: ax.status,
-      statusText: ax.statusText
-    }
-    this.attemptLog.push(attempt)
-    console.log(JSON.stringify(attempt))
+      statusText: ax.statusText,
+    };
+    this.attemptLog.push(attempt);
+    console.log(JSON.stringify(attempt));
   }
 
   logAttemptError(err: AxiosError) {
@@ -137,9 +136,9 @@ export class RetryAxios extends EventEmitter {
       isAxiosError: err.isAxiosError,
       code: err.code !== 'undefined' ? err.code! : null,
       status: err.isAxiosError ? null : err.response!.status,
-      statusText: err.isAxiosError ? null : err.response!.statusText
-    }
-    this.attemptLog.push(attempt)
-    console.log(JSON.stringify(attempt))
+      statusText: err.isAxiosError ? null : err.response!.statusText,
+    };
+    this.attemptLog.push(attempt);
+    console.log(JSON.stringify(attempt));
   }
 }
