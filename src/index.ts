@@ -41,7 +41,7 @@ export class CloudLock extends EventEmitter {
   config: CloudLockConfig;
   resource: string;
   restClient: AxiosInstance = this.createRestClient();
-  restClientRetryStrategy: RetryAxios = new RetryAxios(3, 100);
+  restClientRetryStrategy: RetryAxios = new RetryAxios({maxRetries: 3});
   restClientRetryConfig: rax.RetryConfig = {
     retry: 3,
     noResponseRetries: 3,
@@ -50,7 +50,7 @@ export class CloudLock extends EventEmitter {
     statusCodesToRetry: [[100, 199], [423, 423], [429, 429], [500, 599]],
   };
   restLockClient: AxiosInstance = this.createRestLockClient();
-  restLockClientRetryStrategy = new RetryAxios(100, 500);
+  restLockClientRetryStrategy = new RetryAxios({maxRetries: 100});
   lockData: CloudLockResult | undefined = undefined;
   httpsKeepAliveAgent = new https.Agent({
     keepAlive: true,
@@ -95,7 +95,7 @@ export class CloudLock extends EventEmitter {
     this.restClient.delete(
       `/accounts/foo/resources/${this.resource}/locks/${this.lockData!.lockId}`
     );
-  _unlockRetry = () => this.restClientRetryStrategy.retry(this._unlock);
+	_unlockRetry = () => new RetryAxios({maxRetries: 3}).retry(this._unlock);
 
   async unlock(): Promise<boolean> {
     if (
@@ -116,7 +116,10 @@ export class CloudLock extends EventEmitter {
     this.restLockClient.post(
       `/accounts/foo/resources/${this.resource}/locks?ttl=${this.config.ttl}`
     );
-  _lockRetry = () => this.restClientRetryStrategy.retry(this._lock);
+  _lockRetry = () => new RetryAxios({
+		maxRetries: 3, 
+		statusCodesToRetry: [[100, 200], [423, 423], [429, 429], [500, 599]]
+	}).retry(this._lock);
 
   async lock(): Promise<CloudLockResult> {
     this.lockData = undefined;
@@ -135,11 +138,11 @@ export class CloudLock extends EventEmitter {
     }
   }
 
-  _wait = () => this.restLockClientRetryStrategy.retry(this._lock);
+  _wait = (retries?: number) => new RetryAxios({maxRetries: retries, notifier: this}).retry(this._lock);
 
-  async wait(): Promise<CloudLockResult> {
+  async wait(retries?: number): Promise<CloudLockResult> {
     try {
-      const response = await this._wait();
+      const response = await this._wait(retries);
       return response.data;
     } catch (error) {
       throw error;

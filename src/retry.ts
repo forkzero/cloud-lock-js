@@ -1,7 +1,10 @@
 import { AxiosResponse, AxiosError } from 'axios';
 import { EventEmitter } from 'events';
+import { NumericRanges } from './range';
 
 interface Attempt {
+  message: string;
+  method: string;
   clientTimeEpoch: number;
   attempt: number;
   delay: number;
@@ -10,31 +13,53 @@ interface Attempt {
   code: string | null;
   status: number | null;
   statusText: string | null;
+  willRetry: boolean;
+}
+
+interface RetryOptions {
+  maxRetries: number;
+  maxRetriesNoResponse: number;
+  maxDelay: number;
+  initialDelay: number;
+  httpMethodsToRetry: string[];
+  statusCodesToRetry: number[][];
+  notifier: EventEmitter;
 }
 
 export class RetryAxios extends EventEmitter {
-  defaults = {
-    initialDelay: 500, // milliseconds
-    maxRetries: 100,
-    maxDelay: 3 * 60 * 1000, // 3 minutes in milliseconds
+  defaults: RetryOptions = {
+    maxRetries: 10,
+    maxRetriesNoResponse: 3,
+    maxDelay: 3 * 60 * 1000,
+    initialDelay: 100, // milliseconds
+    httpMethodsToRetry: ['POST', 'DELETE', 'GET'],
+    statusCodesToRetry: [
+    // https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+    // 1xx - Retry (Informational, request still processing)
+    // 2xx - Do not retry (Success)
+    // 3xx - Do not retry (Redirect)
+    // 4xx - Do not retry (Client errors)
+    // 423 - Retry ("Locked")
+    // 429 - Retry ("Too Many Requests")
+    // 5xx - Retry (Server errors)
+    [100, 199],
+    [423, 423],
+    [429, 429],
+    [500, 599]
+    ],
+    notifier: this
   };
   attemptLog: Attempt[] = [];
-  maxRetries = 100;
+  retryRange: NumericRanges;
   delay = 0; // starting delay, in ms
   jitter = 0; // jitter, in ms
   attempt = 0; // counter for number of attemps made
   retryTimer: NodeJS.Timeout | undefined;
-  constructor(maxRetries?: number, initialDelay?: number) {
+  config: RetryOptions;
+  constructor(config: Partial<RetryOptions> = {}) {
     super();
-    this.maxRetries =
-      typeof maxRetries === 'undefined' ? this.defaults.maxRetries : maxRetries;
-    this.defaults.initialDelay =
-      typeof initialDelay === 'undefined'
-        ? this.defaults.initialDelay
-        : initialDelay;
-    if (this.defaults.initialDelay <= 0) {
-      throw new Error('initialDelay must be a positive number');
-    }
+    this.config = { ...this.defaults, ...config };
+    this.retryRange = new NumericRanges(this.config.statusCodesToRetry);
   }
 
   retry = (fn: Function): Promise<AxiosResponse> =>
@@ -60,11 +85,11 @@ export class RetryAxios extends EventEmitter {
             () => this.runFunction(fn, resolve, reject),
             this.delay + this.jitter
           );
-          this.emit('retry');
+          this.emitRetry();
         } else {
           // no more retries, return the response
           resolve(axResponse);
-          this.emit('success');
+          this.config.notifier.emit('complete', axResponse);
         }
       })
 
@@ -81,14 +106,16 @@ export class RetryAxios extends EventEmitter {
             () => this.runFunction(fn, resolve, reject),
             this.delay + this.jitter
           );
-          this.emit('retry');
+          this.emitRetry();
         } else {
           // no more retries, return the error
           reject(err);
-          this.emit('unsuccessful');
+          this.config.notifier.emit('unsuccessful', err);
         }
       });
   }
+
+  emitRetry = () => this.config.notifier.emit('retry', { delay: this.delay, jitter: this.jitter });
 
   incrementDelay(isAxiosError: boolean) {
     this.jitter = Math.floor(Math.random() * 100);
@@ -103,17 +130,41 @@ export class RetryAxios extends EventEmitter {
       this.delay = this.defaults.maxDelay;
     }
   }
-
-  shouldRetry(result: AxiosResponse): boolean {
-    return this.attempt >= this.maxRetries ? false : result.status === 423;
+  
+  inMethod(method: string): boolean {
+    return this.config.httpMethodsToRetry.indexOf(method.toUpperCase()) >= 0;
   }
+
+  inRange = (status: number): boolean => this.retryRange.hasMember(status);
+
+  shouldRetry = (result: AxiosResponse): boolean => {
+    if (this.attempt >= this.config.maxRetries) {
+      console.log(`max retries (${this.config.maxRetries}) exceeded`);
+      return false;
+    }
+    else if (!this.inRange(result.status)) {
+      console.log(`status ${result.status} is not on retry list`);
+      return false;
+    }
+    else if (! this.inMethod(result.request.method)) {
+      console.log(`method ${result.request.method} is not on retry list`);
+      return false;
+    }
+    else {
+      return true;
+    }
+  }
+
   shouldRetryError(error: AxiosError): boolean {
-    return this.attempt >= this.maxRetries
+    return this.attempt >= this.config.maxRetries
       ? false
       : error.isAxiosError || error.response!.status === 500;
   }
+
   logAttempt(ax: AxiosResponse) {
     const attempt: Attempt = {
+      message: "OK",
+      method: ax.request.method,
       clientTimeEpoch: Date.now(),
       attempt: this.attempt,
       delay: this.delay,
@@ -122,6 +173,7 @@ export class RetryAxios extends EventEmitter {
       code: null,
       status: ax.status,
       statusText: ax.statusText,
+      willRetry: this.shouldRetry(ax)
     };
     this.attemptLog.push(attempt);
     console.log(JSON.stringify(attempt));
@@ -129,6 +181,8 @@ export class RetryAxios extends EventEmitter {
 
   logAttemptError(err: AxiosError) {
     const attempt: Attempt = {
+      message: err.message,
+      method: err.isAxiosError ? null : err.request.method,
       clientTimeEpoch: Date.now(),
       attempt: this.attempt,
       delay: this.delay,
@@ -137,6 +191,7 @@ export class RetryAxios extends EventEmitter {
       code: err.code !== 'undefined' ? err.code! : null,
       status: err.isAxiosError ? null : err.response!.status,
       statusText: err.isAxiosError ? null : err.response!.statusText,
+      willRetry: this.shouldRetryError(err)
     };
     this.attemptLog.push(attempt);
     console.log(JSON.stringify(attempt));
