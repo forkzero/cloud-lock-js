@@ -41,14 +41,6 @@ export class CloudLock extends EventEmitter {
   config: CloudLockConfig;
   resource: string;
   restClient: AxiosInstance = this.createRestClient();
-  restClientRetryStrategy: RetryAxios = new RetryAxios({maxRetries: 3});
-  restClientRetryConfig: rax.RetryConfig = {
-    retry: 3,
-    noResponseRetries: 3,
-    retryDelay: 100,
-    httpMethodsToRetry: ['GET', 'HEAD', 'OPTIONS', 'DELETE', 'PUT', 'POST'],
-    statusCodesToRetry: [[100, 199], [423, 423], [429, 429], [500, 599]],
-  };
   restLockClient: AxiosInstance = this.createRestLockClient();
   restLockClientRetryStrategy = new RetryAxios({maxRetries: 100});
   lockData: CloudLockResult | undefined = undefined;
@@ -95,7 +87,7 @@ export class CloudLock extends EventEmitter {
     this.restClient.delete(
       `/accounts/foo/resources/${this.resource}/locks/${this.lockData!.lockId}`
     );
-	_unlockRetry = () => new RetryAxios({maxRetries: 3}).retry(this._unlock);
+	_unlockRetry = () => new RetryAxios({maxRetries: 3, notifier: this}).retry(this._unlock);
 
   async unlock(): Promise<boolean> {
     if (
@@ -118,7 +110,8 @@ export class CloudLock extends EventEmitter {
     );
   _lockRetry = () => new RetryAxios({
 		maxRetries: 3, 
-		statusCodesToRetry: [[100, 200], [423, 423], [429, 429], [500, 599]]
+		statusCodesToRetry: [[100, 200], [423, 423], [429, 429], [500, 599]],
+		notifier: this
 	}).retry(this._lock);
 
   async lock(): Promise<CloudLockResult> {
